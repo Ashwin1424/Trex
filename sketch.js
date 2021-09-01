@@ -1,157 +1,227 @@
-//I did everything you asked me to correct, but it is still not working
+var PLAY = 1;
+var END = 0;
+var gameState = PLAY;
 
-var bow , arrow,  scene;
-var bowImage, arrowImage, green_balloonImage, red_balloonImage, pink_balloonImage ,blue_balloonImage, backgroundImage;
-var green_balloonGroup, red_balloonGroup, pink_balloonGroup, blue_balloonGroup, arrowGroup
+var trex, trex_running, trex_collided;
+var ground, invisibleGround, groundImage;
 
-var score=0;
+var cloudsGroup, cloudImage;
+var obstaclesGroup, obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6;
+
+var score;
+var gameOverImg,restartImg
+var jumpSound , checkPointSound, dieSound
 
 function preload(){
+  trex_running = loadAnimation("trex1.png","trex3.png","trex4.png");
+  trex_collided = loadAnimation("trex_collided.png");
   
-  backgroundImage = loadImage("background0.png");
-  arrowImage = loadImage("arrow0.png");
-  bowImage = loadImage("bow0.png");
-  red_balloonImage = loadImage("red_balloon0.png");
-  green_balloonImage = loadImage("green_balloon0.png");
-  pink_balloonImage = loadImage("pink_balloon0.png");
-  blue_balloonImage = loadImage("blue_balloon0.png");
+  groundImage = loadImage("ground2.png");
   
+  cloudImage = loadImage("cloud.png");
+  
+  obstacle1 = loadImage("obstacle1.png");
+  obstacle2 = loadImage("obstacle2.png");
+  obstacle3 = loadImage("obstacle3.png");
+  obstacle4 = loadImage("obstacle4.png");
+  obstacle5 = loadImage("obstacle5.png");
+  obstacle6 = loadImage("obstacle6.png");
+  
+  restartImg = loadImage("restart.png")
+  gameOverImg = loadImage("gameOver.png")
+  
+  jumpSound = loadSound("jump.mp3")
+  dieSound = loadSound("die.mp3")
+  checkPointSound = loadSound("checkPoint.mp3")
 }
 
-
-
 function setup() {
-  createCanvas(400, 400);
-  
-  //creating background
-  scene = createSprite(0,0,400,400);
-  scene.addImage(backgroundImage);
-  scene.scale = 2.5
-  
-  // creating bow to shoot arrow
-  bow = createSprite(380,220,20,50);
-  bow.addImage(bowImage); 
-  bow.scale = 1;
+  createCanvas(600, 200);
 
-  arrowGroup = new Group();
-  green_balloonGroup = new Group();
-  red_balloonGroup = new Group();
-  pink_balloonGroup = new Group();
-  blue_balloonGroup = new Group();
+
   
-   score = 0    
+  trex = createSprite(50,160,20,50);
+  trex.addAnimation("running", trex_running);
+  trex.addAnimation("collided", trex_collided);
+  
+
+  trex.scale = 0.5;
+  
+  ground = createSprite(200,180,400,20);
+  ground.addImage("ground",groundImage);
+  ground.x = ground.width /2;
+  
+  gameOver = createSprite(300,100);
+  gameOver.addImage(gameOverImg);
+  
+  restart = createSprite(300,140);
+  restart.addImage(restartImg);
+  
+ 
+  gameOver.scale = 0.5;
+  restart.scale = 0.5;
+  
+  invisibleGround = createSprite(200,190,400,10);
+  invisibleGround.visible = false;
+  
+  //create Obstacle and Cloud Groups
+  obstaclesGroup = createGroup();
+  cloudsGroup = createGroup();
+
+  
+  trex.setCollider("rectangle",0,0,trex.width,trex.height);
+  trex.debug = true
+  
+  score = 0;
+  
 }
 
 function draw() {
- background(0);
-  // moving ground
-    scene.velocityX = -3 
+  
+  background(180);
+  //displaying score
+  text("Score: "+ score, 500,50);
+  
+  
+  if(gameState === PLAY){
 
-    if (scene.x < 0){
-      scene.x = scene.width/2;
-    }
-  
-  //moving bow
-  bow.y = World.mouseY
-  
-   // release arrow when space key is pressed
-  if (keyDown("space")) {
-    createArrow();
+    gameOver.visible = false;
+    restart.visible = false;
     
+    ground.velocityX = -(4 + 3* score/100)
+    //scoring
+    score = score + Math.round(getFrameRate()/60);
+    
+    if(score>0 && score%100 === 0){
+       checkPointSound.play() 
+    }
+    
+    if (ground.x < 0){
+      ground.x = ground.width/2;
+    }
+    
+    //jump when the space key is pressed
+    if(keyDown("space")&& trex.y >= 100) {
+        trex.velocityY = -12;
+        jumpSound.play();
+    }
+    
+    //add gravity
+    trex.velocityY = trex.velocityY + 0.8
+  
+    //spawn the clouds
+    spawnClouds();
+  
+    //spawn obstacles on the ground
+    spawnObstacles();
+    
+    if(obstaclesGroup.isTouching(trex)){
+        //trex.velocityY = -12;
+        jumpSound.play();
+        gameState = END;
+        dieSound.play()
+      
+    }
   }
-   
-  //creating continous enemies
-  var select_balloon = Math.round(random(1,4));
-  
-  if (World.frameCount % 100 == 0) {
-    if (select_balloon == 1) {
-      redBalloon();
-    } else if (select_balloon == 2) {
-      greenBalloon();
-    } else if (select_balloon == 3) {
-      blueBalloon();
-    } else {
-      pinkBalloon();
-    }
-  }  
+   else if (gameState === END) {
+      gameOver.visible = true;
+      restart.visible = true;
 
-  if (arrowGroup.isTouching(green_balloonGroup)) {
-    green_balloonGroup.destroyEach();
-    arrowGroup.destroyEach();
-    score=score+3;}
-  
-  if (arrowGroup.isTouching(red_balloonGroup)) {
-    red_balloonGroup.destroyEach();
-    arrowGroup.destroyEach();
-    score=score+3;}
-  
-
-  
-  if(arrowGroup.isTouching(blue_balloonGroup)) {
-    blue_balloonGroup.destroyEach();
-    arrowGroup.destroyEach();
-    score=score+3;}
+        
+     
+     //change the trex animation
+      trex.changeAnimation("collided", trex_collided);
     
-  if(arrowGroup.isTouching(pink_balloonGroup)) {
-    pink_balloonGroup.destroyEach();
-      arrowGroup.destroyEach();
-      score=score+3;}
+     
+     
+      ground.velocityX = 0;
+      trex.velocityY = 0
+      
+     
+      //set lifetime of the game objects so that they are never destroyed
+    obstaclesGroup.setLifetimeEach(-1);
+    cloudsGroup.setLifetimeEach(-1);
+     
+     obstaclesGroup.setVelocityXEach(0);
+     cloudsGroup.setVelocityXEach(0);    
+     if(mousePressedOver(restart)) {
+      reset();
+    }
+   }
+  
+ 
+  //stop trex from falling down
+  trex.collide(invisibleGround);
+  
+
+
 
   drawSprites();
-  text("Score: "+ score, 300,50);
+}
+
+function reset(){
+ 
+  gameState = PLAY
+  gameOver.visible = false
+  restart.visible = false
+  obstaclesGroup.destroyEach();
+  cloudsGroup.destroyEach();
+  trex.changeAnimation("running", trex_running);
+  score = 0;
+
 }
 
 
-// Creating  arrows for bow
- function createArrow() {
-  var arrow = createSprite(100, 100, 60, 10);
-  arrow.addImage(arrowImage);
-  arrow.x = 360;
-  arrow.y = bow.y;
-  arrow.velocityX = -4;
-  arrow.scale = 0.3;
-  
-  arrow.lifetime = 100;
-
-  arrowGroup.add(arrow);
+function spawnObstacles(){
+ if (frameCount % 60 === 0){
+   var obstacle = createSprite(600,165,10,40);
+   obstacle.velocityX = -(6 + score/100);
+   
+    //generate random obstacles
+    var rand = Math.round(random(1,6));
+    switch(rand) {
+      case 1: obstacle.addImage(obstacle1);
+              break;
+      case 2: obstacle.addImage(obstacle2);
+              break;
+      case 3: obstacle.addImage(obstacle3);
+              break;
+      case 4: obstacle.addImage(obstacle4);
+              break;
+      case 5: obstacle.addImage(obstacle5);
+              break;
+      case 6: obstacle.addImage(obstacle6);
+              break;
+      default: break;
+    }
+   
+    //assign scale and lifetime to the obstacle           
+    obstacle.scale = 0.5;
+    obstacle.lifetime = 300;
+   
+   //add each obstacle to the group
+    obstaclesGroup.add(obstacle);
+ }
 }
 
-function redBalloon() {
-  var red = createSprite(0,Math.round(random(20, 370)), 10, 10);
-  red.addImage(red_balloonImage);
-  red.velocityX = 3;
-  red.lifetime = 150;
-  red.scale = 0.1;
-
-  red_balloonGroup.add(red);
+function spawnClouds() {
+  //write code here to spawn the clouds
+  if (frameCount % 60 === 0) {
+    var cloud = createSprite(600,120,40,10);
+    cloud.y = Math.round(random(80,120));
+    cloud.addImage(cloudImage);
+    cloud.scale = 0.5;
+    cloud.velocityX = -3;
+    
+     //assign lifetime to the variable
+    cloud.lifetime = 200;
+    
+    //adjust the depth
+    cloud.depth = trex.depth;
+    trex.depth = trex.depth + 1;
+    
+    //add each cloud to the group
+    cloudsGroup.add(cloud);
+  }
 }
 
-function blueBalloon() {
-  var blue = createSprite(0,Math.round(random(20, 370)), 10, 10);
-  blue.addImage(blue_balloonImage);
-  blue.velocityX = 3;
-  blue.lifetime = 150;
-  blue.scale = 0.1;
-
-  blue_balloonGroup.add(blue);
-}
-
-function greenBalloon() {
-  var green = createSprite(0,Math.round(random(20, 370)), 10, 10);
-  green.addImage(green_balloonImage);
-  green.velocityX = 3;
-  green.lifetime = 150;
-  green.scale = 0.1;
-
-  green_balloonGroup.add(green);
-}
-
-function pinkBalloon() {
-  var pink = createSprite(0,Math.round(random(20, 370)), 10, 10);
-  pink.addImage(pink_balloonImage);
-  pink.velocityX = 3;
-  pink.lifetime = 150;
-  pink.scale = 1
-
-  pink_balloonGroup.add(pink);
-}
